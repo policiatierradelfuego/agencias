@@ -1,11 +1,12 @@
 /* ==========================================================================
-   ESTILOS INSTITUCIONALES - POLICÍA DE TIERRA DEL FUEGO
-   Basado fielmente en https://policiatierradelfuego.github.io/sos/
+   POLICÍA DE TIERRA DEL FUEGO - REGISTRO DE AGENCIAS DE SEGURIDAD PRIVADA
+   Estilos unificados y optimizados
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&display=swap');
 
+/* Variables Institucionales */
 :root {
   --pdtf-blue: #17394b;
   --pdtf-blue-dark: #0f2734;
@@ -18,13 +19,13 @@
   --pdtf-muted: #68767e;
   --pdtf-line: rgba(23, 57, 75, .12);
   --pdtf-shadow: 0 12px 34px rgba(0, 0, 0, .08);
-  --pdtf-shadow-hover: 0 12px 28px rgba(23, 57, 75, .12);
   --pdtf-radius-lg: 24px;
   --pdtf-radius-md: 16px;
   --pdtf-transition: all .2s cubic-bezier(.4, 0, .2, 1);
 }
 
-* {
+/* Reset básico */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
@@ -36,7 +37,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Contenedor principal de la página */
+/* Contenedor principal */
 .pdtf-safety {
   width: 100%;
   max-width: 1180px;
@@ -71,7 +72,7 @@ html, body {
   }
 }
 
-/* Botón Volver */
+/* Botón Volver (por si se reactiva) */
 .pdtf-back {
   display: inline-flex;
   align-items: center;
@@ -93,11 +94,6 @@ html, body {
   background: var(--pdtf-blue-dark);
   color: var(--pdtf-lime);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(23, 57, 75, .35);
-}
-
-.pdtf-back:active {
-  transform: translateY(0);
 }
 
 .pdtf-header__brand {
@@ -207,6 +203,7 @@ html, body {
   box-shadow: 0 0 0 3px rgba(23, 57, 75, 0.12);
 }
 
+/* Cápsulas de filtrado por ciudad */
 .pdtf-city-pills {
   display: flex;
   align-items: center;
@@ -244,7 +241,7 @@ html, body {
   box-shadow: 0 4px 14px rgba(23, 57, 75, 0.28);
 }
 
-/* Contador de estadísticas */
+/* Contador de agencias */
 .pdtf-stats-badge {
   display: inline-block;
   font-size: 12px;
@@ -280,7 +277,7 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
-/* Tarjeta / Contenedor de la Tabla */
+/* Tarjeta y Tabla de datos */
 .pdtf-table-card {
   background: #fff;
   border: 1px solid var(--pdtf-line);
@@ -294,7 +291,6 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Tabla de datos */
 .pdtf-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -360,7 +356,7 @@ html, body {
   color: #666;
 }
 
-/* Enlaces de llamada y correo */
+/* Enlaces de Teléfono y Correo */
 .pdtf-link-action {
   display: inline-flex;
   align-items: center;
@@ -388,7 +384,7 @@ html, body {
   font-size: 12.5px;
 }
 
-/* Estado sin resultados */
+/* Estado Sin Resultados */
 .pdtf-empty-state {
   padding: 48px 20px;
   text-align: center;
@@ -416,4 +412,8 @@ html, body {
   color: var(--pdtf-muted);
   border-top: 1px solid var(--pdtf-line);
   background: #fff;
+}
+
+.pdtf-footer p {
+  margin: 0;
 }

@@ -36,7 +36,7 @@
       <!-- Contenido Principal -->
       <main class="pdtf-agencias-container">
 
-        <!-- Controles de búsqueda y filtrado -->
+        <!-- Controles de búsqueda y filtrado dinámico por ciudad -->
         <div class="pdtf-filter-bar">
           <div class="pdtf-search-wrapper">
             <span class="material-symbols-rounded" aria-hidden="true">search</span>
@@ -44,11 +44,9 @@
               placeholder="Buscar por nombre, domicilio, teléfono..." aria-label="Buscar agencia">
           </div>
 
-          <div class="pdtf-city-pills" role="radiogroup" aria-label="Filtrar por ciudad">
+          <!-- Las ciudades se detectan y generan dinámicamente desde el CSV -->
+          <div class="pdtf-city-pills" id="cityPills" role="radiogroup" aria-label="Filtrar por ciudad">
             <button type="button" class="pdtf-pill-btn is-active" data-filter="all">Todas</button>
-            <button type="button" class="pdtf-pill-btn" data-filter="Río Grande">Río Grande</button>
-            <button type="button" class="pdtf-pill-btn" data-filter="Ushuaia">Ushuaia</button>
-            <button type="button" class="pdtf-pill-btn" data-filter="Tolhuin">Tolhuin</button>
           </div>
         </div>
 
@@ -74,7 +72,7 @@
                 </tr>
               </thead>
               <tbody id="agenciasTableBody">
-                <!-- Se llena dinámicamente con JavaScript desde el JSON -->
+                <!-- Se llena dinámicamente con JavaScript desde el CSV -->
               </tbody>
             </table>
           </div>
@@ -94,7 +92,7 @@
     </div>
   </section>
 
-  <!-- Lógica dinámica de carga y filtrado -->
+  <!-- Lógica dinámica de parseo de CSV y filtrado automático -->
   <script>
     (function () {
       let agencias = [];
@@ -107,42 +105,135 @@
       const noResults = document.getElementById('noResults');
       const statsCount = document.getElementById('statsCount');
       const searchInput = document.getElementById('searchInput');
-      const pillButtons = document.querySelectorAll('.pdtf-pill-btn');
+      const cityPillsContainer = document.getElementById('cityPills');
 
-      // Cargar datos dinámicamente desde el JSON
-      fetch('agencias_seguridad.json')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Error al cargar datos: ' + response.statusText);
+      // Parser robusto de CSV compatible con comillas dobles y saltos de coma
+      function parseCSV(text) {
+        const lines = [];
+        let row = [];
+        let current = '';
+        let insideQuote = false;
+
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          const nextChar = text[i + 1];
+
+          if (char === '"') {
+            if (insideQuote && nextChar === '"') {
+              current += '"';
+              i++; // Saltear comilla escapada
+            } else {
+              insideQuote = !insideQuote;
+            }
+          } else if (char === ',' && !insideQuote) {
+            row.push(current.trim());
+            current = '';
+          } else if ((char === '\r' || char === '\n') && !insideQuote) {
+            if (char === '\r' && nextChar === '\n') {
+              i++;
+            }
+            row.push(current.trim());
+            if (row.some(val => val.length > 0)) {
+              lines.push(row);
+            }
+            row = [];
+            current = '';
+          } else {
+            current += char;
           }
-          return response.json();
-        })
-        .then(data => {
-          agencias = data;
-          spinner.style.display = 'none';
-          tableCard.style.display = 'block';
-          renderTable();
-        })
-        .catch(err => {
-          console.error('Error:', err);
-          spinner.innerHTML = '<p style="color:var(--pdtf-red);">No se pudo cargar el listado de agencias.</p>';
-        });
+        }
+        if (current.length > 0 || row.length > 0) {
+          row.push(current.trim());
+          if (row.some(val => val.length > 0)) {
+            lines.push(row);
+          }
+        }
 
-      // Función para normalizar texto para búsqueda
-      function normalize(str) {
+        if (lines.length < 2) return [];
+
+        // Encabezados
+        const headers = lines[0].map(h => normalizeKey(h));
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowValues = lines[i];
+          const item = { ciudad: '', nombre: '', domicilio: '', telefono: '', email: '' };
+
+          headers.forEach((header, colIndex) => {
+            const val = rowValues[colIndex] || '';
+            if (header.includes('ciudad')) item.ciudad = val;
+            else if (header.includes('empresa') || header.includes('nombre')) item.nombre = val;
+            else if (header.includes('domicilio') || header.includes('direccion')) item.domicilio = val;
+            else if (header.includes('telefono') || header.includes('tel')) item.telefono = val;
+            else if (header.includes('email') || header.includes('correo')) item.email = val;
+          });
+
+          if (item.nombre || item.ciudad) {
+            data.push(item);
+          }
+        }
+
+        return data;
+      }
+
+      function normalizeKey(str) {
         return (str || '')
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '');
       }
 
-      // Obtener clase de badge por ciudad
+      function normalize(str) {
+        return normalizeKey(str);
+      }
+
+      // Obtener badge por ciudad con colores institucionales
       function getCityBadge(city) {
         const c = normalize(city);
         if (c.includes('rio grande')) return 'pdtf-badge-city--rg';
         if (c.includes('ushuaia')) return 'pdtf-badge-city--ush';
         if (c.includes('tolhuin')) return 'pdtf-badge-city--tol';
         return 'pdtf-badge-city--other';
+      }
+
+      // Generar dinámicamente los botones de filtrado según las ciudades presentes en el CSV
+      function renderCityButtons(data) {
+        const citiesSet = new Set();
+        data.forEach(item => {
+          const c = (item.ciudad || '').trim();
+          if (c && normalize(c) !== 'no informada') {
+            citiesSet.add(c);
+          }
+        });
+
+        // Orden preferente: Río Grande, Ushuaia, Tolhuin, y luego el resto
+        const priority = ['río grande', 'ushuaia', 'tolhuin'];
+        const sortedCities = Array.from(citiesSet).sort((a, b) => {
+          const idxA = priority.indexOf(normalize(a));
+          const idxB = priority.indexOf(normalize(b));
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
+
+        let pillsHtml = '<button type="button" class="pdtf-pill-btn is-active" data-filter="all">Todas</button>';
+        sortedCities.forEach(city => {
+          pillsHtml += `<button type="button" class="pdtf-pill-btn" data-filter="${city}">${city}</button>`;
+        });
+
+        cityPillsContainer.innerHTML = pillsHtml;
+
+        // Asignar listeners
+        const buttons = cityPillsContainer.querySelectorAll('.pdtf-pill-btn');
+        buttons.forEach(btn => {
+          btn.addEventListener('click', function () {
+            buttons.forEach(b => b.classList.remove('is-active'));
+            this.classList.add('is-active');
+            currentFilter = this.getAttribute('data-filter');
+            renderTable();
+          });
+        });
       }
 
       // Renderizar filas de la tabla
@@ -184,8 +275,8 @@
           const badgeClass = getCityBadge(item.ciudad);
           const ciudadText = item.ciudad || 'No informada';
           const domicilioText = item.domicilio ? item.domicilio : '<span class="pdtf-text-muted-empty">No informado</span>';
-          
-          // Formateo de teléfono
+
+          // Formateo de teléfonos (soporta múltiples números con barra '/')
           let telefonoHtml = '<span class="pdtf-text-muted-empty">No informado</span>';
           if (item.telefono) {
             if (item.telefono.includes('/')) {
@@ -200,7 +291,7 @@
             }
           }
 
-          // Formateo de correo
+          // Formateo de email
           let emailHtml = '<span class="pdtf-text-muted-empty">No informado</span>';
           if (item.email) {
             emailHtml = `<a class="pdtf-link-action" href="mailto:${item.email}"><span class="material-symbols-rounded">mail</span>${item.email}</a>`;
@@ -224,17 +315,27 @@
         tableBody.innerHTML = rowsHtml;
       }
 
-      // Event listeners para filtros de ciudad
-      pillButtons.forEach(btn => {
-        btn.addEventListener('click', function () {
-          pillButtons.forEach(b => b.classList.remove('is-active'));
-          this.classList.add('is-active');
-          currentFilter = this.getAttribute('data-filter');
+      // Cargar datos dinámicamente desde el archivo CSV en la raíz
+      fetch('agencias_seguridad.csv')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Error al cargar archivo CSV: ' + response.statusText);
+          }
+          return response.text();
+        })
+        .then(csvText => {
+          agencias = parseCSV(csvText);
+          spinner.style.display = 'none';
+          tableCard.style.display = 'block';
+          renderCityButtons(agencias);
           renderTable();
+        })
+        .catch(err => {
+          console.error('Error:', err);
+          spinner.innerHTML = '<p style="color:var(--pdtf-red);">No se pudo cargar el archivo CSV de agencias.</p>';
         });
-      });
 
-      // Event listener para búsqueda
+      // Búsqueda en vivo
       searchInput.addEventListener('input', function (e) {
         currentSearch = e.target.value;
         renderTable();
